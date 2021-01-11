@@ -69,7 +69,6 @@
 </head>
 <body>
 	<div class="container">
-
 		<div id="task-container">
 			<div id="form-wrapper">
 				<form id="form">
@@ -89,211 +88,138 @@
 			</div>	
 		</div>
 
-	</div>
+	</div> 
+    <script type="text/javascript">
+        var base_url = 'http://127.0.0.1:8000/';
+        var list = null;
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+        var activeItem = null;
+        buildList();
 
-	<script type="text/javascript">
-		/*
-			KEY COMPONENTS:
-			"activeItem" = null until an edit button is clicked. Will contain object of item we are editing
-			"list_snapshot" = Will contain previous state of list. Used for removing extra rows on list update
-			
-			PROCESS:
-			1 - Fetch Data and build rows "buildList()"
-			2 - Create Item on form submit
-			3 - Edit Item click - Prefill form and change submit URL
-			4 - Delete Item - Send item id to delete URL
-			5 - Cross out completed task - Event handle updated item
+        function buildList() {
+            var wrapper = document.getElementById('list-wrapper');
+            
+            var url = base_url+'api/task-list/';
+            fetch(url)
+            .then((resp)=>resp.json())
+            .then((data)=> {
+                console.log('Data:', data);
 
-			NOTES:
-			-- Add event handlers to "edit", "delete", "title"
-			-- Render with strike through items completed
-			-- Remove extra data on re-render
-			-- CSRF Token
-		*/
-
-		function getCookie(name) {
-		    var cookieValue = null;
-		    if (document.cookie && document.cookie !== '') {
-		        var cookies = document.cookie.split(';');
-		        for (var i = 0; i < cookies.length; i++) {
-		            var cookie = cookies[i].trim();
-		            // Does this cookie string begin with the name we want?
-		            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-		                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-		                break;
-		            }
-		        }
-		    }
-		    return cookieValue;
-		}
-		var csrftoken = getCookie('csrftoken');
-
-		var activeItem = null
-		var list_snapshot = []
-
-		buildList()
-
-		function buildList(){
-			var wrapper = document.getElementById('list-wrapper')
-			//wrapper.innerHTML = ''
-
-
-
-			var url = 'http://127.0.0.1:8000/api/task-list/'
-
-			fetch(url)
-			.then((resp) => resp.json())
-			.then(function(data){
-				console.log('Data:', data)
-
-				var list = data
-				for (var i in list){
-
-
-					try{
-						document.getElementById(`data-row-${i}`).remove()
-					}catch(err){
-
-					}
-			
-
-
-					var title = `<span class="title">${list[i].title}</span>`
-					if (list[i].completed == true){
+                list = data;
+                wrapper.innerHTML = '';
+                for (var i in list) {
+                    var title = `<span class="title">${list[i].title}</span>`
+					if (list[i].completed == true) {
 						title = `<strike class="title">${list[i].title}</strike>`
 					}
-
-					var item = `
-						<div id="data-row-${i}" class="task-wrapper flex-wrapper">
-							<div style="flex:7">
+                    var item = `
+                    <div id="data-row-${i}" class="task-wrapper flex-wrapper">
+							<div style="flex:7" onclick="strikeUnstrike(${i}, ${list[i].id})">
 								${title}
 							</div>
 							<div style="flex:1">
-								<button class="btn btn-sm btn-outline-info edit">Edit </button>
+								<button class="btn btn-sm btn-outline-info edit" onclick="editItem(${i}, ${list[i].id})">Edit </button>
 							</div>
 							<div style="flex:1">
-								<button class="btn btn-sm btn-outline-dark delete">-</button>
+								<button class="btn btn-sm btn-outline-dark delete" onclick="deleteItem(${i},${list[i].id})">-</button>
 							</div>
 						</div>
+                    `;
+                    wrapper.innerHTML += item;
+                }
+                
+            })
+        }
 
-					`
-					wrapper.innerHTML += item
-	
-				}
+        var from = document.getElementById('form-wrapper');
+        form.addEventListener('submit', (e)=> {
+            e.preventDefault();
+            var url = base_url + 'api/task-create/';
+            if (activeItem != null) {
+                url = base_url + 'api/task-update/'+activeItem.id;
+                activeItem = null;
+            }
+            var title = document.getElementById('title').value
+            fetch(url, {
+                method:'POST',
+                headers: {
+                    'Content-type':'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body:JSON.stringify({'title':title}),
+            })
+            .then(()=> {
+                buildList();
+                document.getElementById('form').reset();
+            })
+        })
+       
+        function editItem(row_id, id) {
+            console.log("Edit button clicked for id " + id);
+            title = document.getElementById('data-row-'+ row_id).getElementsByClassName('title')[0].innerText;
+            activeItem = {
+                id: id,
+                title: title,
+            }
+            document.getElementById('title').value = activeItem.title;
+        }
 
-				if (list_snapshot.length > list.length){
-					for (var i = list.length; i < list_snapshot.length; i++){
-						document.getElementById(`data-row-${i}`).remove()
-					}
-				}
+        function deleteItem(row_id, id) {
+            console.log('Item Deleted '+ id);
+            var url = base_url + 'api/task-delete/'+id;
+            fetch(url, {
+                method:'DELETE',
+                headers: {
+                    'Content-type':'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+            })
+            .then((response)=> {
+                document.getElementById('data-row-'+row_id).remove();
+                activeItem=null;
+                document.getElementById('form').reset();
+            })
+            
+        }
 
-				list_snapshot = list
-
-
-				for (var i in list){
-					var editBtn = document.getElementsByClassName('edit')[i]
-					var deleteBtn = document.getElementsByClassName('delete')[i]
-					var title = document.getElementsByClassName('title')[i]
-
-
-					editBtn.addEventListener('click', (function(item){
-						return function(){
-							editItem(item)
-						}
-					})(list[i]))
-
-
-					deleteBtn.addEventListener('click', (function(item){
-						return function(){
-							deleteItem(item)
-						}
-					})(list[i]))
-
-
-
-					
-					title.addEventListener('click', (function(item){
-						return function(){
-							strikeUnstrike(item)
-						}
-					})(list[i]))
-
-
-				}
-
-
-			})
-		}
-
-
-		var form = document.getElementById('form-wrapper')
-		form.addEventListener('submit', function(e){
-			e.preventDefault()
-			console.log('Form submitted')
-			var url = 'http://127.0.0.1:8000/api/task-create/'
-			if (activeItem != null){
-				var url = `http://127.0.0.1:8000/api/task-update/${activeItem.id}/`
-				activeItem = null
-			}
-
-
-
-			var title = document.getElementById('title').value
-			fetch(url, {
-				method:'POST',
-				headers:{
-					'Content-type':'application/json',
-					'X-CSRFToken':csrftoken,
-				},
-				body:JSON.stringify({'title':title})
-			}
-			).then(function(response){
-				buildList()
-				document.getElementById('form').reset()
-			})
-		})
-
-
-
-
-		function editItem(item){
-			console.log('Item clicked:', item)
-			activeItem = item
-			document.getElementById('title').value = activeItem.title
-		}
-
-
-		function deleteItem(item){
-			console.log('Delete clicked')
-			fetch(`http://127.0.0.1:8000/api/task-delete/${item.id}/`, {
-				method:'DELETE', 
-				headers:{
-					'Content-type':'application/json',
-					'X-CSRFToken':csrftoken,
-				}
-			}).then((response) => {
-				buildList()
-			})
-		}
-
-		function strikeUnstrike(item){
-			console.log('Strike clicked')
-
-			item.completed = !item.completed
-			fetch(`http://127.0.0.1:8000/api/task-update/${item.id}/`, {
-				method:'POST', 
-				headers:{
-					'Content-type':'application/json',
-					'X-CSRFToken':csrftoken,
-				},
-				body:JSON.stringify({'title':item.title, 'completed':item.completed})
-			}).then((response) => {
-				buildList()
-			})
-		}
-
-
-	</script>
-
+        function strikeUnstrike(row_id, id) {
+            console.log('Strike Unstrike Clicked '+ id);
+            var url = base_url + 'api/task-update/'+id;
+            title = document.getElementById('data-row-'+ row_id).getElementsByClassName('title')[0].textContent
+            fetch(url, {
+                method:'POST',
+                headers: {
+                    'Content-type':'application/json',
+                    'X-CSRFToken': csrftoken,
+                },
+                body:JSON.stringify({'title':title,'completed':!list[row_id].completed}),
+            })
+            .then((resp)=>resp.json())
+            .then((data)=> {
+                console.log(data)
+                if (data.completed == true){
+                    document.getElementById('data-row-'+ row_id).getElementsByClassName('title')[0].style.setProperty("text-decoration", "line-through");
+                } else {
+                    document.getElementById('data-row-'+ row_id).getElementsByClassName('title')[0].style.setProperty("text-decoration", "none");
+                }
+                list[row_id].completed = data.completed
+            })
+        }
+    </script>
 </body>
 </html>
