@@ -195,12 +195,20 @@
 					var deleteBtn = document.getElementsByClassName('delete')[i]
 					var title = document.getElementsByClassName('title')[i]
 
+					// editBtn.addEventListener('click', (function(item){
+					// 	return function(){
+					// 		editItem(item)
+					// 	}
+					// })(list[i]))
 
-					editBtn.addEventListener('click', (function(item){
-						return function(){
+					//Immediatly Invoked Function (IIF) + Closure for saving current loop item in memory
+					editBtn.addEventListener('click', (() => {
+
+						let item = list[i]
+						return () => {
 							editItem(item)
 						}
-					})(list[i]))
+					})())
 
 
 					deleteBtn.addEventListener('click', (function(item){
