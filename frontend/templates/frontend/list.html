@@ -274,7 +274,7 @@
 		function deleteItem(item){
 			console.log('Delete clicked')
 			fetch(`http://127.0.0.1:8000/api/task-delete/${item.id}/`, {
-				method:'DELETE', 
+				method:'POST', 
 				headers:{
 					'Content-type':'application/json',
 					'X-CSRFToken':csrftoken,
